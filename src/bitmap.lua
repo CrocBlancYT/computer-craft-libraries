@@ -5,7 +5,6 @@ local mt = {__index = bitmap_obj}
 
 local byte = string.byte
 local char = string.char
-local sub = string.sub
 local ceil = math.ceil
 local log = math.log
 local floor = math.floor
@@ -41,6 +40,32 @@ local function write(len, number)
     end
     return value
 end
+
+local function loadFromFile(name)
+    local handle = io.open(name, 'rb')
+
+    if not handle then
+        error("bad argument #1 to '?', no file found")
+    end
+
+    local bin = handle:read('*a')
+    handle:close()
+
+    return bin
+end
+
+local function saveToFile(name, self)
+    local handle = io.open(name, 'wb')
+
+    if not handle then
+        error("bad argument #1 to '?', no file found")
+    end
+
+    local bin = self:unload()
+    handle:write(bin)
+    handle:close()
+end
+
 
 local function makeRawHeaders(headers)
     local bin_header = ''
@@ -120,23 +145,14 @@ local function getData(bin, headers)
     return map
 end
 
-function bitmap.load(name)
-    local nameIsString = type(name) == 'string'
+function bitmap.loadFromBinary(bin, optionalName)
+    local binIsString = type(bin) == 'string'
     
-    if not nameIsString then
-        local t = type(name)
+    if not binIsString then
+        local t = type(bin)
 		error("bad argument #1 to '?' (string expected, got " .. t .. " )");
     end
     
-    local handle = io.open(name, 'rb')
-
-    if not handle then
-        error("bad argument #1 to '?', no file found")
-    end
-
-    local bin = handle:read('*a')
-    handle:close()
-
     local headers = getHeaders(bin)
 
     local isBitMap = (headers.type == 19778)
@@ -151,7 +167,7 @@ function bitmap.load(name)
     local pixels = getData(bin, headers)
     
     return setmetatable({
-        fileName = name,
+        fileName = optionalName or '',
         fileSize = headers.fileSize,
 
         width = headers.width,
@@ -162,6 +178,23 @@ function bitmap.load(name)
         bin = bin,
         headers = headers
     }, mt)
+end
+
+function bitmap.loadFromFile(name)
+    local bin = loadFromFile(name)
+    return bitmap.loadFromBinary(bin, name)
+end
+
+function bitmap_obj:saveToFile(optionalName)
+    local name = optionalName or self.name
+    local nameIsString = type(name) == "string"
+    
+    if not nameIsString then
+        local t = type(name)
+		error("bad argument #1 to '?' (string expected, got " .. t .. " )");
+    end
+    
+    saveToFile(name, self)
 end
 
 function bitmap_obj:unload()
