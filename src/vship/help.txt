@@ -1,0 +1,16 @@
+Functions in the Virtual Ship API:
+vship.getLook()
+vship.getUp()
+vship.getRight()
+vship.getLocalOmega()
+
+vship.commandRotationOrder
+vship.ccvsRotationOrder
+
+vship.world.transformPosition( position )
+vship.world.transformDirection( direction )
+vship.shipyard.transformPosition( position )
+vship.shipyard.transformDirection( direction )
+
+vship.getPositionAABB( AABB start position, AABB end position ) -> AABB world center
+vship.blockChanged() -> world position, shipyard position, mass changed
