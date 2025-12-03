@@ -1,4 +1,7 @@
 
+--- takes advantages of utf8 characters to increase resolution, splitting each pixel into a 2x3 grid
+--- p.s, each 2x3 grid is only 1 color and 1 background color
+
 local charsetStart = 128;
 local char = string.char
 
@@ -63,7 +66,7 @@ end;
 
 -- public class
 
-local function wrap(term, bitColor, backgroundColor)
+local function new(term, bitColor, backgroundColor)
     local buffer = {}
     local width, height = term.getSize();
     
@@ -86,9 +89,7 @@ local function wrap(term, bitColor, backgroundColor)
         clear(term, buffer)
     end;
     
-    term.buffer = buffer
-    
     return buffer;
 end;
 
-return wrap;
+return new;

@@ -432,12 +432,4 @@ function quaternion_obj:toEulerZXY() -- world ZXY // local YXZ (cc:vs rotation o
     return z, x, y
 end
 
-if ship then
-    local getQuaternion = ship.getQuaternion;
-
-    function ship.getQuaternion()
-        return quaternion.new(getQuaternion());
-    end
-end
-
 return quaternion

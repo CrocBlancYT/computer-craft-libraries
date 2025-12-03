@@ -60,4 +60,4 @@ local function wrap(modem, key)
     modem.receive = receive
 end
 
-return wrap
+return {wrap=wrap}

@@ -4,7 +4,7 @@ local decode = textutils.unserialiseJSON
 local net = {}
 
 function net.receive(host) -- returns the stored table at the path data/[host].json
-    local h, err = io.open('data/' .. host .. '.json', 'r')
+    local h, err = io.open('net.' .. host .. '.json', 'r')
 
     if not h then return {}, false, err end -- receive fail
 
@@ -18,7 +18,7 @@ end
 function net.transmit(host, payload) -- replaces the stored table at the path data/[host].json with the payload
     local text = encode(payload)
 
-    local h, err = io.open('data/' .. host .. '.json', 'w+')
+    local h, err = io.open('net.' .. host .. '.json', 'w+')
 
     if not h then return false, err end -- message fail
 
