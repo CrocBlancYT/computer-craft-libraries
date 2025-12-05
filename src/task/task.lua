@@ -1,62 +1,92 @@
 
--- (256 tasks max)
+local exception = dofile("rom/modules/main/cc/internal/tiny_require.lua")("cc.internal.exception")
 
-task = {}
+local function createThread(fn, barrier_ctx)
+    return { co = coroutine.create(function() return exception.try_barrier(barrier_ctx, fn) end), filter = nil }
+end
 
-function task.spawn(callback)
-    assert(type(callback) == "function", "bad argument #1 'spawn' (function expected, got "..type(callback)..")")
+local function createPool(threads)
+    local event = { n = 0 }
+
+    local function cycle()
+        for i = 1, #threads do
+            local thread = threads[i]
+            if thread and (thread.filter == nil or thread.filter == event[1] or event[1] == "terminate") then
+                local ok, param = coroutine.resume(thread.co, table.unpack(event, 1, event.n))
+                
+                if ok then
+                    thread.filter = param
+                elseif type(param) == "string" and exception.can_wrap_errors() then
+                    error(exception.make_exception(param, thread.co))
+                else
+                    error(param, 0)
+                end
+                
+                if coroutine.status(thread.co) == "dead" then
+                    threads[i] = nil
+                end
+            end
+        end
+        
+        event = table.pack(os.pullEventRaw())
+    end
     
-    local addr = tostring(callback)
-    task[addr] = callback
-    os.queueEvent('task_create', addr)
+    return cycle
+end
+
+local function createHandle(fn)
+    local addr = tostring(fn)
+    
+    return function ()
+        parallel.waitForAny(fn, function ()
+            local _, cancelled
+            repeat _, cancelled = os.pullEvent('task_cancel')
+            until cancelled == addr
+        end)
+    end, addr
+end
+
+local barrier_ctx = { co = coroutine.running() }
+local threads = {}
+local cycle = createPool(threads)
+
+local insert = table.insert
+local function spawn(fn)
+    local fn, addr = createHandle(fn)
+    insert(threads, createThread(fn, barrier_ctx))
     return addr
+end
+
+local function cancel(addr)
+    os.queueEvent('task_cancel', addr)
+end
+
+local task = {}
+
+task.spawn = spawn
+task.cancel = cancel
+
+function task.run()
+    while true do
+        cycle()
+    end
 end
 
 function task.clock()
     return os.epoch('local') / 1000
 end
 
-function task.wait(duration)
-    assert(type(duration) == "number", "bad argument #1 'wait' (number expected, got "..type(duration)..")")
+function task.wait(t)
+    if t > 0.05 then
+        sleep(t - 0.05)
+    end
     
     local start = task.clock()
     
-    if duration > 0.05 then
-        sleep(duration - 0.05)
-    end
-
     repeat
         os.queueEvent('task_wait')
         os.pullEvent('task_wait')
-    until (task.clock() - start) > duration
-end
-
-function task.cancel(addr)
-    assert(type(addr) == "string", "bad argument #1 'cancel' (string expected, got "..type(addr)..")")
-    
-    os.queueEvent('task_cancel', addr)
-end
-
-local function run(addr)
-    local fun = task[addr]
-    if not fun then return end
-
-    parallel.waitForAny(fun, function () -- main & cancel
-        local _, cancelled
-        repeat _, cancelled = os.pullEvent('task_cancel')
-        until cancelled == addr
-    end)
-end
-
-function task.run()
-    local function listen()
-        local event, addr = os.pullEvent('task_create')
-        
-        parallel.waitForAll(listen,
-        function() run(addr) end)
-    end
-
-    listen()
+    until (task.clock() - start) > t
 end
 
 return task
