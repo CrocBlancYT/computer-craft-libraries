@@ -2,6 +2,8 @@
 local Connection = {}
 local Signal = {}
 
+local signals = {}
+
 local function createConnection(_, signal, callback, once)
     local conn = setmetatable({
         signal = signal,
@@ -14,14 +16,17 @@ local function createConnection(_, signal, callback, once)
     return conn
 end
 
-local function createSignal()
-    return setmetatable({
-        connections = {}
+local function createSignal(name)
+    local signal = setmetatable({
+        connections = {},
+        name = name
     }, {__index=Signal})
+    
+    signals[name or signal] = signal
+    return signal
 end
 
 setmetatable(Connection, {__call = createConnection})
-setmetatable(Signal, {__call = createSignal})
 
 function Connection:Disconnect()
     self.signal.connections[self] = nil
@@ -44,8 +49,22 @@ function Signal:Fire(...)
     end
 end
 
+local function getSignals()
+    return signals
+end
+
+local function disconnectSignal(signal)
+    for _, conn in pairs(signal.connections) do
+        conn:Disconnect()
+    end
+    
+    signal[signal.name or signal] = nil
+end
+
 return {
-    new = createSignal
+    new = createSignal,
+    getSignals = getSignals,
+    disconnectSignal = disconnectSignal
 }
 
 --[[
