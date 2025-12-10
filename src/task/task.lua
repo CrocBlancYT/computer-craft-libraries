@@ -35,15 +35,17 @@ local function createPool(threads)
 end
 
 local function createHandle(fn)
-    local addr = tostring(fn)
+    local handle = {addr = ''}
     
-    return function ()
+    function handle.fn()
         parallel.waitForAny(fn, function ()
             local _, cancelled
             repeat _, cancelled = os.pullEvent('task_cancel')
-            until cancelled == addr
+            until cancelled == handle.addr
         end)
-    end, addr
+    end
+    
+    return handle
 end
 
 local barrier_ctx = { co = coroutine.running() }
@@ -52,16 +54,18 @@ local cycle = createPool(threads)
 
 local insert = table.insert
 local function spawn(fn)
-    local fn, addr = createHandle(fn)
-    insert(threads, createThread(fn, barrier_ctx))
-    return addr
+    local handle = createHandle(fn)
+    local thread = createThread(handle.fn, barrier_ctx)
+    handle.addr = tostring(thread)
+    insert(threads, thread)
+    return thread
 end
 
-local function cancel(addr)
-    os.queueEvent('task_cancel', addr)
+local function cancel(thread)
+    os.queueEvent('task_cancel', tostring(thread))
 end
 
-local task = {}
+local task = {active = threads}
 
 task.spawn = spawn
 task.cancel = cancel
